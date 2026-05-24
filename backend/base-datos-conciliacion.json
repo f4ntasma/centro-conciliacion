@@ -1,0 +1,22 @@
+{
+  "casos": [
+    {
+      "id": 1,
+      "solicitante": "Caso 01",
+      "convocado": "Por determinar",
+      "pretension": "Demanda Corporativa",
+      "fechaRadicacion": "2026-05-23T18:38:26.070Z",
+      "estado": "INICIADO"
+    }
+  ],
+  "facturas": [],
+  "eventos": [
+    {
+      "id": "1779561299194",
+      "title": "Demanda de Alimentos",
+      "date": "2026-05-23",
+      "type": "conciliacion"
+    }
+  ],
+  "documentos": []
+}

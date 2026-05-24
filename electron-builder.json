@@ -1,0 +1,23 @@
+{
+  "appId": "com.iustitiaetpax.sistema-conciliacion",
+  "productName": "IustitiaEtPax - Sistema de Conciliacion",
+  "asar": false,
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "main.js",
+    "package.json",
+    "app-resources/**/*"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "frontend/public/logowithbackground.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  }
+}
