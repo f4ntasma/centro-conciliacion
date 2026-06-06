@@ -25,7 +25,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { getCasos, getEventos, crearEvento, eliminarEvento } from '@/lib/db';
+import { getCasos, getEventos, crearEvento, eliminarEvento, getDocumentos } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 
 interface StatCard {
@@ -59,11 +59,10 @@ export default function DashboardPage() {
       setIsLoading(true);
       
       // Cargar datos en paralelo para mejor rendimiento
-      const [casos, eventos] = await Promise.all([getCasos(), getEventos()]);
+      const [casos, eventos, documentos] = await Promise.all([getCasos(), getEventos(), getDocumentos()]);
       const activos = casos.filter((c: any) => c.estado === 'EN_PROCESO').length;
       setEvents(eventos);
 
-      // Actualizar tarjetas de estadísticas
       setStats([
         {
           title: 'Conciliaciones Activas',
@@ -74,7 +73,7 @@ export default function DashboardPage() {
         },
         {
           title: 'Documentos',
-          value: 0, // Se conectará con endpoint de documentos cuando esté disponible
+          value: documentos.length,
           icon: <FileText className="h-6 w-6" />,
           href: '/documents',
           trend: 'Total sistema',
@@ -87,8 +86,6 @@ export default function DashboardPage() {
           trend: 'Eventos programados',
         },
       ]);
-
-      console.log('Datos cargados:', { casos: casos.length, eventos: eventos.length });
 
     } catch (error) {
       // Sin backend disponible — cargar con valores vacíos silenciosamente
