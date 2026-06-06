@@ -72,18 +72,20 @@ export async function eliminarEvento(id: string) {
 }
 
 // ── DOCUMENTOS ─────────────────────────────────────────
-export async function getDocumentos() {
-  const { data, error } = await supabase
+export async function getDocumentos(casoId?: number) {
+  let query = supabase
     .from('documentos')
     .select('*')
     .order('uploaded_at', { ascending: false });
+  if (casoId) query = query.eq('caso_id', casoId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((d: any) => ({
     id: d.id,
+    casoId: d.caso_id,
     name: d.name,
     type: d.type,
     size: d.size,
-    status: d.status,
     uploadedBy: d.uploaded_by,
     uploadedAt: d.uploaded_at,
   }));
@@ -91,7 +93,7 @@ export async function getDocumentos() {
 
 export async function crearDocumento(payload: {
   name: string; type: string; size: number;
-  status: string; uploadedBy: string; uploadedAt: string;
+  uploadedBy: string; uploadedAt: string; casoId: number;
 }) {
   const { data, error } = await supabase
     .from('documentos')
@@ -99,14 +101,14 @@ export async function crearDocumento(payload: {
       name: payload.name,
       type: payload.type,
       size: payload.size,
-      status: payload.status,
       uploaded_by: payload.uploadedBy,
       uploaded_at: payload.uploadedAt,
+      caso_id: payload.casoId,
     })
     .select()
     .single();
   if (error) throw error;
-  return { ...data, uploadedBy: data.uploaded_by, uploadedAt: data.uploaded_at };
+  return { ...data, uploadedBy: data.uploaded_by, uploadedAt: data.uploaded_at, casoId: data.caso_id };
 }
 
 export async function eliminarDocumento(id: string) {
