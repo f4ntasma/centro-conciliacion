@@ -38,7 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Receipt, Download, Plus, Search } from 'lucide-react';
-import apiClient from '@/lib/api-client';
+import { getFacturas, crearFactura } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/ui/spinner';
 

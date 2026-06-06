@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Upload, Download, Trash2, File } from 'lucide-react';
+import { getDocumentos, crearDocumento, eliminarDocumento } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 import { Document } from '@/types';
 
@@ -50,11 +51,10 @@ export default function DocumentsPage() {
   const loadDocuments = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/casos/documentos');
-      const documentos = await response.json();
-      setDocuments(documentos);
+      const docs = await getDocumentos();
+      setDocuments(docs);
     } catch (error) {
-      console.warn('Backend no disponible:', error);
+      console.warn('Error cargando documentos:', error);
       setDocuments([]);
     } finally {
       setIsLoading(false);
@@ -64,48 +64,18 @@ export default function DocumentsPage() {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-
     try {
       setIsUploading(true);
-      
-      // Enviar documento al backend
-      const response = await fetch('/api/casos/documentos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: files[0].name,
-          type: files[0].type,
-          size: files[0].size,
-          status: 'pending',
-          uploadedBy: 'Usuario Actual',
-          uploadedAt: new Date().toISOString().split('T')[0],
-        }),
+      const newDocument = await crearDocumento({
+        name: files[0].name, type: files[0].type, size: files[0].size,
+        status: 'pending', uploadedBy: 'Usuario Actual',
+        uploadedAt: new Date().toISOString().split('T')[0],
       });
-
-      if (!response.ok) {
-        throw new Error('No se pudo subir el documento');
-      }
-
-      const newDocument = await response.json();
       setDocuments([newDocument, ...documents]);
-      
-      toast({
-        title: 'Éxito',
-        description: 'Documento subido correctamente',
-      });
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      toast({ title: 'Éxito', description: 'Documento subido correctamente' });
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
-      console.error('Error subiendo documento:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo subir el documento',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo subir el documento', variant: 'destructive' });
     } finally {
       setIsUploading(false);
     }
@@ -113,26 +83,11 @@ export default function DocumentsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/casos/documentos/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('No se pudo eliminar el documento');
-      }
-
+      await eliminarDocumento(id);
       setDocuments(documents.filter(d => d.id !== id));
-      toast({
-        title: 'Éxito',
-        description: 'Documento eliminado correctamente',
-      });
+      toast({ title: 'Éxito', description: 'Documento eliminado correctamente' });
     } catch (error) {
-      console.error('Error eliminando documento:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar el documento',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo eliminar el documento', variant: 'destructive' });
     }
   };
 

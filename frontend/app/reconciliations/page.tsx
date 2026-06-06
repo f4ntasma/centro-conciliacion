@@ -40,6 +40,7 @@ import { z } from 'zod';
 import { useToast } from '@/hooks/use-toast';
 import { Reconciliation } from '@/types';
 import Link from 'next/link';
+import { getCasos, crearCaso, cambiarEstadoCaso, eliminarCaso } from '@/lib/db';
 
 const reconciliationSchema = z.object({
   name: z.string().min(3, 'Nombre requerido'),
@@ -65,28 +66,24 @@ export default function ReconciliationsPage() {
   const loadReconciliations = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/casos');
-      const casos = await response.json();
-      
-      // Convertir casos a formato de reconciliations
+      const casos = await getCasos();
       const reconciliationsData = casos.map((caso: any) => ({
         id: caso.id.toString(),
         name: `Caso #${caso.id} - ${caso.solicitante}`,
         description: caso.pretension,
-        status: caso.estado === 'INICIADO' ? 'draft' : 
-                caso.estado === 'EN_PROCESO' ? 'in-progress' : 
+        status: caso.estado === 'INICIADO' ? 'draft' :
+                caso.estado === 'EN_PROCESO' ? 'in-progress' :
                 caso.estado === 'FINALIZADO' ? 'completed' : 'draft',
-        createdAt: new Date(caso.fechaRadicacion).toISOString().split('T')[0],
-        updatedAt: new Date(caso.fechaRadicacion).toISOString().split('T')[0],
+        createdAt: new Date(caso.fecha_radicacion).toISOString().split('T')[0],
+        updatedAt: new Date(caso.fecha_radicacion).toISOString().split('T')[0],
         createdBy: 'Sistema',
-        progress: caso.estado === 'INICIADO' ? 25 : 
-                  caso.estado === 'EN_PROCESO' ? 50 : 
+        progress: caso.estado === 'INICIADO' ? 25 :
+                  caso.estado === 'EN_PROCESO' ? 50 :
                   caso.estado === 'FINALIZADO' ? 100 : 0,
       }));
-      
       setReconciliations(reconciliationsData);
     } catch (error) {
-      console.warn('Backend no disponible:', error);
+      console.warn('Error cargando conciliaciones:', error);
       setReconciliations([]);
     } finally {
       setIsLoading(false);
@@ -95,26 +92,7 @@ export default function ReconciliationsPage() {
 
   const onSubmit = async (data: ReconciliationFormData) => {
     try {
-      // Crear nuevo caso en el backend
-      const response = await fetch('/api/casos', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          solicitante: data.name,
-          convocado: 'Por determinar',
-          pretension: data.description,
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('No se pudo crear el caso');
-      }
-      
-      const newCaso = await response.json();
-      
-      // Convertir a formato de reconciliation
+      const newCaso = await crearCaso({ solicitante: data.name, convocado: 'Por determinar', pretension: data.description });
       const newReconciliation: Reconciliation = {
         id: newCaso.id.toString(),
         name: `Caso #${newCaso.id} - ${data.name}`,
@@ -125,77 +103,32 @@ export default function ReconciliationsPage() {
         createdBy: data.name,
         progress: 0,
       };
-
       setReconciliations([newReconciliation, ...reconciliations]);
-      toast({
-        title: 'Éxito',
-        description: 'Conciliación creada correctamente',
-      });
+      toast({ title: 'Éxito', description: 'Conciliación creada correctamente' });
       setIsDialogOpen(false);
       reset();
     } catch (error) {
-      console.error('Error creando conciliación:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo crear la conciliación',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo crear la conciliación', variant: 'destructive' });
     }
   };
 
   const handleStatusChange = async (id: string, newStatus: 'INICIADO' | 'EN_PROCESO' | 'FINALIZADO') => {
     try {
-      const response = await fetch(`/api/casos/${id}/estado`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ estado: newStatus }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('No se pudo cambiar el estado');
-      }
-      
-      // Recargar datos para mostrar el cambio
+      await cambiarEstadoCaso(Number(id), newStatus);
       await loadReconciliations();
-      
-      toast({
-        title: 'Éxito',
-        description: `Estado cambiado a ${newStatus.replace('_', ' ').toLowerCase()}`,
-      });
+      toast({ title: 'Éxito', description: `Estado cambiado a ${newStatus.replace('_', ' ').toLowerCase()}` });
     } catch (error) {
-      console.error('Error cambiando estado:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo cambiar el estado',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo cambiar el estado', variant: 'destructive' });
     }
   };
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`/api/casos/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('No se pudo eliminar el caso');
-      }
-      
+      await eliminarCaso(Number(id));
       setReconciliations(reconciliations.filter(r => r.id !== id));
-      toast({
-        title: 'Éxito',
-        description: 'Conciliación eliminada correctamente',
-      });
+      toast({ title: 'Éxito', description: 'Conciliación eliminada correctamente' });
     } catch (error) {
-      console.error('Error eliminando conciliación:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar la conciliación',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo eliminar la conciliación', variant: 'destructive' });
     }
   };
 
