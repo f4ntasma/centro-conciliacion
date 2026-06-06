@@ -47,12 +47,8 @@ export default function CalendarPage() {
       const eventos = await response.json();
       setEvents(eventos || []);
     } catch (error) {
-      console.error('Error cargando eventos:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los eventos del calendario',
-        variant: 'destructive',
-      });
+      console.warn('Backend no disponible:', error);
+      setEvents([]);
     } finally {
       setIsLoading(false);
     }

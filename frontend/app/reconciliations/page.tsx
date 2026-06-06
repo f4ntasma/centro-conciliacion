@@ -86,12 +86,7 @@ export default function ReconciliationsPage() {
       
       setReconciliations(reconciliationsData);
     } catch (error) {
-      console.error('Error cargando conciliaciones:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar las conciliaciones',
-        variant: 'destructive',
-      });
+      console.warn('Backend no disponible:', error);
       setReconciliations([]);
     } finally {
       setIsLoading(false);

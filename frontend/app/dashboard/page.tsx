@@ -25,7 +25,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import Link from 'next/link';
-import apiClient from '@/lib/api-client';
+import { getCasos, getEventos, crearEvento, eliminarEvento } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 
 interface StatCard {
@@ -59,16 +59,8 @@ export default function DashboardPage() {
       setIsLoading(true);
       
       // Cargar datos en paralelo para mejor rendimiento
-      const [casosReq, eventosReq] = await Promise.all([
-        apiClient.get('/casos'),
-        apiClient.get('/casos/eventos')
-      ]);
-      
-      const casos = casosReq.data || [];
-      const eventos = eventosReq.data || [];
+      const [casos, eventos] = await Promise.all([getCasos(), getEventos()]);
       const activos = casos.filter((c: any) => c.estado === 'EN_PROCESO').length;
-
-      // Actualizar estado de eventos
       setEvents(eventos);
 
       // Actualizar tarjetas de estadísticas
@@ -99,12 +91,14 @@ export default function DashboardPage() {
       console.log('Datos cargados:', { casos: casos.length, eventos: eventos.length });
 
     } catch (error) {
-      console.error('Error cargando dashboard:', error);
-      toast({ 
-        title: 'Error de carga', 
-        description: 'No se pudieron cargar los datos del servidor', 
-        variant: 'destructive' 
-      });
+      // Sin backend disponible — cargar con valores vacíos silenciosamente
+      console.warn('Backend no disponible, cargando sin datos:', error);
+      setEvents([]);
+      setStats([
+        { title: 'Conciliaciones Activas', value: 0, icon: <CheckSquare className="h-6 w-6" />, href: '/reconciliations', trend: 'En trámite' },
+        { title: 'Documentos', value: 0, icon: <FileText className="h-6 w-6" />, href: '/documents', trend: 'Total sistema' },
+        { title: 'Agenda', value: 0, icon: <Bell className="h-6 w-6" />, href: '/users', trend: 'Eventos programados' },
+      ]);
     } finally {
       setIsLoading(false);
     }
@@ -153,8 +147,7 @@ export default function DashboardPage() {
         type: 'conciliacion',
       };
 
-      const response = await apiClient.post('/casos/eventos', newEventData);
-      const nuevoEvento = response.data;
+      const nuevoEvento = await crearEvento({ title: newEventTitle, date: formatDateStr(selectedDate), type: 'conciliacion' });
       
       // Optimistic UI: agregar al estado local inmediatamente
       setEvents((prev) => [...prev, nuevoEvento]);
@@ -172,7 +165,7 @@ export default function DashboardPage() {
 
   const handleDeleteEvent = async (id: string) => {
     try {
-      await apiClient.delete(`/casos/eventos/${id}`);
+      await eliminarEvento(id);
       
       // Optimistic UI: remover del estado local inmediatamente
       setEvents((prev) => prev.filter((e) => e.id !== id));

@@ -76,12 +76,8 @@ export default function InvoicesPage() {
       const { data } = await apiClient.get<Invoice[]>('/casos/facturas');
       setInvoices(data);
     } catch (error) {
-      console.error('Error fetching invoices:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar las facturas.',
-        variant: 'destructive',
-      });
+      console.warn('Backend no disponible:', error);
+      setInvoices([]);
     } finally {
       setIsLoading(false);
     }

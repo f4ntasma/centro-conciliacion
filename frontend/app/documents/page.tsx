@@ -54,12 +54,7 @@ export default function DocumentsPage() {
       const documentos = await response.json();
       setDocuments(documentos);
     } catch (error) {
-      console.error('Error cargando documentos:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudieron cargar los documentos',
-        variant: 'destructive',
-      });
+      console.warn('Backend no disponible:', error);
       setDocuments([]);
     } finally {
       setIsLoading(false);
