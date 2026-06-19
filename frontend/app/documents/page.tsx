@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import dynamic from 'next/dynamic';
 import { ProtectedRoute } from '@/components/protected-route';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,9 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Spinner } from '@/components/ui/spinner';
 import { Upload, Trash2, File, ChevronDown, ChevronRight, Eye, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCasos, getDocumentos, crearDocumento, eliminarDocumento, subirArchivoDocumento, getSignedUrlDocumento } from '@/lib/db';
-
-const DocViewer = dynamic(() => import('@cyntler/react-doc-viewer'), { ssr: false });
+import { getCasos, getDocumentos, crearDocumento, eliminarDocumento, subirArchivoDocumento, descargarArchivoDocumento, getUrlDocumento } from '@/lib/db';
 
 interface Documento {
   id: string;
@@ -34,19 +31,43 @@ interface Caso {
   estado: string;
 }
 
-function DocPreview({ url, type, name }: { url: string; type: string; name: string }) {
-  const docs = [{ uri: url, fileType: type, fileName: name }];
-  return (
-    <div className="w-full h-[70vh] rounded border overflow-hidden">
-      <DocViewer
-        documents={docs}
-        style={{ width: '100%', height: '100%' }}
-        config={{
-          header: { disableHeader: true },
-          pdfVerticalScrollByDefault: true,
-        }}
-      />
+function DocPreview({ storagePath, type, name }: { storagePath: string; type: string; name: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let objectUrl: string;
+    setLoading(true);
+    setError(false);
+    descargarArchivoDocumento(storagePath)
+      .then(blob => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [storagePath]);
+
+  if (loading) return <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>;
+  if (error || !blobUrl) return (
+    <div className="text-center py-12 space-y-3">
+      <p className="text-muted-foreground">No se pudo cargar la previsualización.</p>
     </div>
+  );
+
+  const isImage = type.startsWith('image/');
+  if (isImage) {
+    return <div className="flex justify-center"><img src={blobUrl} alt={name} className="max-w-full max-h-[70vh] rounded object-contain" /></div>;
+  }
+
+  return (
+    <iframe
+      src={blobUrl}
+      className="w-full h-[70vh] rounded border"
+      title={name}
+    />
   );
 }
 
@@ -58,8 +79,6 @@ export default function DocumentsPage() {
   const [expandedCasos, setExpandedCasos] = useState<Set<number>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [previewDoc, setPreviewDoc] = useState<Documento | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentUploadCasoId = useRef<number | null>(null);
   const { toast } = useToast();
@@ -131,18 +150,24 @@ export default function DocumentsPage() {
     }
   };
 
-  const openPreview = async (doc: Documento) => {
+  const openPreview = (doc: Documento) => {
     setPreviewDoc(doc);
-    setPreviewUrl(null);
+  };
+
+  const handleDownload = async (doc: Documento) => {
     if (!doc.storagePath) return;
     try {
-      setPreviewLoading(true);
-      const url = await getSignedUrlDocumento(doc.storagePath);
-      setPreviewUrl(url);
+      const blob = await descargarArchivoDocumento(doc.storagePath);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch {
-      toast({ title: 'Error', description: 'No se pudo cargar el archivo', variant: 'destructive' });
-    } finally {
-      setPreviewLoading(false);
+      toast({ title: 'Error', description: 'No se pudo descargar el archivo', variant: 'destructive' });
     }
   };
 
@@ -206,27 +231,22 @@ export default function DocumentsPage() {
           <input ref={fileInputRef} type="file" onChange={handleUpload} className="hidden" accept="*/*" />
 
           {/* Modal de previsualización */}
-          <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) { setPreviewDoc(null); setPreviewUrl(null); } }}>
+          <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}>
             <DialogContent className="max-w-4xl w-full">
               <DialogHeader>
                 <div className="flex items-center justify-between pr-8">
                   <DialogTitle className="truncate max-w-sm">{previewDoc?.name}</DialogTitle>
                   {previewDoc?.storagePath && (
-                    <Button size="sm" variant="outline" onClick={() => handleDownload(previewDoc)}>
+                    <Button size="sm" variant="outline" onClick={() => previewDoc && handleDownload(previewDoc)}>
                       <Download className="h-4 w-4 mr-2" /> Descargar
                     </Button>
                   )}
                 </div>
               </DialogHeader>
-              {previewLoading && (
-                <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>
-              )}
-              {!previewLoading && previewUrl && previewDoc && (
-                <DocPreview url={previewUrl} type={previewDoc.type} name={previewDoc.name} />
-              )}
-              {!previewLoading && !previewUrl && previewDoc && (
-                <p className="text-muted-foreground text-center py-8">Este documento no tiene archivo en Storage.</p>
-              )}
+              {previewDoc?.storagePath
+                ? <DocPreview storagePath={previewDoc.storagePath} type={previewDoc.type} name={previewDoc.name} />
+                : <p className="text-muted-foreground text-center py-8">Este documento no tiene archivo en Storage.</p>
+              }
             </DialogContent>
           </Dialog>
 

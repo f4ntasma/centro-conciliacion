@@ -131,10 +131,10 @@ export function getUrlDocumento(storagePath: string): string {
   return data.publicUrl;
 }
 
-export async function getSignedUrlDocumento(storagePath: string, expiresIn = 3600): Promise<string> {
-  const { data, error } = await supabase.storage.from('documentos').createSignedUrl(storagePath, expiresIn);
+export async function descargarArchivoDocumento(storagePath: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from('documentos').download(storagePath);
   if (error) throw error;
-  return data.signedUrl;
+  return data;
 }
 
 export async function eliminarDocumento(id: string) {

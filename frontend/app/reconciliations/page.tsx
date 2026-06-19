@@ -67,16 +67,20 @@ export default function ReconciliationsPage() {
     try {
       setIsLoading(true);
       const casos = await getCasos();
-      const reconciliationsData = casos.map((caso: any) => ({
+      // Ordenar por fecha y numerar secuencialmente
+      const sorted = [...casos].sort((a: any, b: any) =>
+        new Date(a.fecha_radicacion).getTime() - new Date(b.fecha_radicacion).getTime()
+      );
+      const reconciliationsData = sorted.map((caso: any, index: number) => ({
         id: caso.id.toString(),
-        name: `Caso #${caso.id} - ${caso.solicitante}`,
+        name: `Caso #${index + 1} - ${caso.solicitante}`,
         description: caso.pretension,
         status: caso.estado === 'INICIADO' ? 'draft' :
                 caso.estado === 'EN_PROCESO' ? 'in-progress' :
                 caso.estado === 'FINALIZADO' ? 'completed' : 'draft',
         createdAt: new Date(caso.fecha_radicacion).toISOString().split('T')[0],
         updatedAt: new Date(caso.fecha_radicacion).toISOString().split('T')[0],
-        createdBy: 'Sistema',
+        createdBy: caso.solicitante,
         progress: caso.estado === 'INICIADO' ? 25 :
                   caso.estado === 'EN_PROCESO' ? 50 :
                   caso.estado === 'FINALIZADO' ? 100 : 0,
@@ -92,21 +96,11 @@ export default function ReconciliationsPage() {
 
   const onSubmit = async (data: ReconciliationFormData) => {
     try {
-      const newCaso = await crearCaso({ solicitante: data.name, convocado: 'Por determinar', pretension: data.description });
-      const newReconciliation: Reconciliation = {
-        id: newCaso.id.toString(),
-        name: `Caso #${newCaso.id} - ${data.name}`,
-        description: data.description,
-        status: 'draft',
-        createdAt: new Date().toISOString().split('T')[0],
-        updatedAt: new Date().toISOString().split('T')[0],
-        createdBy: data.name,
-        progress: 0,
-      };
-      setReconciliations([newReconciliation, ...reconciliations]);
+      await crearCaso({ solicitante: data.name, convocado: 'Por determinar', pretension: data.description });
       toast({ title: 'Éxito', description: 'Conciliación creada correctamente' });
       setIsDialogOpen(false);
       reset();
+      await loadReconciliations();
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo crear la conciliación', variant: 'destructive' });
     }
@@ -125,8 +119,8 @@ export default function ReconciliationsPage() {
   const handleDelete = async (id: string) => {
     try {
       await eliminarCaso(Number(id));
-      setReconciliations(reconciliations.filter(r => r.id !== id));
       toast({ title: 'Éxito', description: 'Conciliación eliminada correctamente' });
+      await loadReconciliations();
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo eliminar la conciliación', variant: 'destructive' });
     }
