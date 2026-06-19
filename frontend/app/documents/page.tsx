@@ -50,25 +50,23 @@ function DocPreview({ storagePath, type, name }: { storagePath: string; type: st
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [storagePath]);
 
-  if (loading) return <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>;
+  if (loading) return <div className="flex justify-center items-center h-full"><Spinner className="h-8 w-8" /></div>;
   if (error || !blobUrl) return (
-    <div className="text-center py-12 space-y-3">
+    <div className="text-center py-12 space-y-3 h-full flex flex-col justify-center items-center">
       <p className="text-muted-foreground">No se pudo cargar la previsualización.</p>
     </div>
   );
 
   const isImage = type.startsWith('image/');
   if (isImage) {
-    return <div className="flex justify-center"><img src={blobUrl} alt={name} className="max-w-full max-h-[70vh] rounded object-contain" /></div>;
+    return (
+      <div className="flex justify-center items-center h-full overflow-auto p-4">
+        <img src={blobUrl} alt={name} className="max-w-full max-h-full rounded object-contain" />
+      </div>
+    );
   }
 
-  return (
-    <iframe
-      src={blobUrl}
-      className="w-full h-[70vh] rounded border"
-      title={name}
-    />
-  );
+  return <iframe src={blobUrl} className="w-full h-full border-0" title={name} />;
 }
 
 export default function DocumentsPage() {
@@ -217,21 +215,21 @@ export default function DocumentsPage() {
 
           {/* Modal de previsualización */}
           <Dialog open={!!previewDoc} onOpenChange={(open) => { if (!open) setPreviewDoc(null); }}>
-            <DialogContent className="max-w-4xl w-full">
-              <DialogHeader>
-                <div className="flex items-center justify-between pr-8">
-                  <DialogTitle className="truncate max-w-sm">{previewDoc?.name}</DialogTitle>
-                  {previewDoc?.storagePath && (
-                    <Button size="sm" variant="outline" onClick={() => previewDoc && handleDownload(previewDoc)}>
-                      <Download className="h-4 w-4 mr-2" /> Descargar
-                    </Button>
-                  )}
-                </div>
+            <DialogContent className="flex flex-col w-[95vw] max-w-5xl h-[90vh] p-0 gap-0 overflow-hidden">
+              <DialogHeader className="flex-shrink-0 flex flex-row items-center justify-between px-4 py-3 border-b pr-12">
+                <DialogTitle className="truncate text-sm font-medium max-w-[60%]">{previewDoc?.name}</DialogTitle>
+                {previewDoc?.storagePath && (
+                  <Button size="sm" variant="outline" className="flex-shrink-0 mr-6" onClick={() => previewDoc && handleDownload(previewDoc)}>
+                    <Download className="h-4 w-4 mr-2" /> Descargar
+                  </Button>
+                )}
               </DialogHeader>
-              {previewDoc?.storagePath
-                ? <DocPreview storagePath={previewDoc.storagePath} type={previewDoc.type} name={previewDoc.name} />
-                : <p className="text-muted-foreground text-center py-8">Este documento no tiene archivo en Storage.</p>
-              }
+              <div className="flex-1 min-h-0 overflow-hidden">
+                {previewDoc?.storagePath
+                  ? <DocPreview storagePath={previewDoc.storagePath} type={previewDoc.type} name={previewDoc.name} />
+                  : <p className="text-muted-foreground text-center py-8">Este documento no tiene archivo en Storage.</p>
+                }
+              </div>
             </DialogContent>
           </Dialog>
 
