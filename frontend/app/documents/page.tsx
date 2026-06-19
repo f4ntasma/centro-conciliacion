@@ -171,21 +171,6 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleDownload = async (doc: Documento) => {
-    if (!doc.storagePath) return;
-    try {
-      const url = await getSignedUrlDocumento(doc.storagePath);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = doc.name;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo descargar el archivo', variant: 'destructive' });
-    }
-  };
 
   const toggleCaso = (casoId: number) => {
     setExpandedCasos(prev => {
