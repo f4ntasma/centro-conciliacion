@@ -73,10 +73,10 @@ export default function InvoicesPage() {
   const fetchInvoices = async () => {
     try {
       setIsLoading(true);
-      const { data } = await apiClient.get<Invoice[]>('/casos/facturas');
+      const data = await getFacturas();
       setInvoices(data);
     } catch (error) {
-      console.warn('Backend no disponible:', error);
+      console.warn('Error cargando facturas:', error);
       setInvoices([]);
     } finally {
       setIsLoading(false);
@@ -90,13 +90,10 @@ export default function InvoicesPage() {
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await apiClient.post('/casos/facturas', newInvoice);
-      toast({
-        title: 'Factura creada',
-        description: 'La factura se ha guardado correctamente.',
-      });
+      const created = await crearFactura(newInvoice);
+      setInvoices(prev => [created, ...prev]);
+      toast({ title: 'Factura creada', description: 'La factura se ha guardado correctamente.' });
       setIsDialogOpen(false);
-      // Resetear formulario
       setNewInvoice({
         number: '',
         client: '',
@@ -105,13 +102,8 @@ export default function InvoicesPage() {
         amount: '',
         status: 'pendiente',
       });
-      fetchInvoices();
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'No se pudo crear la factura.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'No se pudo crear la factura.', variant: 'destructive' });
     }
   };
 

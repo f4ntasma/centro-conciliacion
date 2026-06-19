@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckSquare, ChevronLeft, ChevronRight, Plus, Trash2, CalendarPlus } from 'lucide-react';
 import { getEventos, crearEvento, eliminarEvento } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,6 +17,7 @@ interface CalendarEvent {
   date: string;
   title: string;
   type?: 'conciliacion' | 'notificacion';
+  time?: string;
 }
 
 export default function CalendarPage() {
@@ -24,6 +25,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventTime, setNewEventTime] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
@@ -56,10 +58,26 @@ export default function CalendarPage() {
     e.preventDefault();
     if (!newEventTitle.trim()) return;
     try {
-      const nuevoEvento = await crearEvento({ title: newEventTitle, date: formatDateStr(selectedDate), type: 'conciliacion' });
+      const nuevoEvento = await crearEvento({ title: newEventTitle, date: formatDateStr(selectedDate), type: 'conciliacion', time: newEventTime || undefined });
       setEvents((prev) => [...prev, nuevoEvento]);
-      toast({ title: 'Evento Agregado', description: 'Se ha guardado en la agenda.' });
+      toast({
+        title: 'Evento Agregado',
+        description: (
+          <span>
+            Guardado en la agenda.{' '}
+            <a
+              href={buildGoogleCalendarUrl(nuevoEvento)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium text-blue-500"
+            >
+              Agregar a Google Calendar
+            </a>
+          </span>
+        ) as any,
+      });
       setNewEventTitle('');
+      setNewEventTime('');
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo guardar el evento', variant: 'destructive' });
     }
@@ -73,6 +91,39 @@ export default function CalendarPage() {
     } catch (error) {
       toast({ title: 'Error', description: 'No se pudo eliminar el evento', variant: 'destructive' });
     }
+  };
+
+  const buildGoogleCalendarUrl = (event: CalendarEvent): string => {
+    // Construir fechas en formato YYYYMMDDTHHmmSSZ para Google Calendar
+    const [year, month, day] = event.date.split('-').map(Number);
+    let startDate: string;
+    let endDate: string;
+
+    if (event.time) {
+      const [hours, minutes] = event.time.split(':').map(Number);
+      const start = new Date(year, month - 1, day, hours, minutes);
+      const end = new Date(start.getTime() + 60 * 60 * 1000); // +1 hora por defecto
+      const fmt = (d: Date) =>
+        `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}T${String(d.getHours()).padStart(2,'0')}${String(d.getMinutes()).padStart(2,'0')}00`;
+      startDate = fmt(start);
+      endDate = fmt(end);
+    } else {
+      // Evento de todo el día
+      const fmt = (y: number, m: number, d: number) =>
+        `${y}${String(m).padStart(2,'0')}${String(d).padStart(2,'0')}`;
+      startDate = fmt(year, month, day);
+      const nextDay = new Date(year, month - 1, day + 1);
+      endDate = fmt(nextDay.getFullYear(), nextDay.getMonth() + 1, nextDay.getDate());
+    }
+
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: event.title,
+      dates: `${startDate}/${endDate}`,
+      details: `Tipo: ${event.type === 'notificacion' ? 'Notificación' : 'Conciliación'}`,
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
   };
 
   const daysInCurrentMonth = getDaysInMonth(currentDate);
@@ -134,7 +185,9 @@ export default function CalendarPage() {
                           </div>
                           <div className="mt-1 space-y-1 overflow-hidden">
                             {dayEvents.map((evt) => (
-                              <div key={evt.id} className="text-[10px] truncate bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 rounded px-1 py-0.5">{evt.title}</div>
+                              <div key={evt.id} className="text-[10px] truncate bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100 rounded px-1 py-0.5">
+                                {evt.time && <span className="font-semibold mr-1">{evt.time}</span>}{evt.title}
+                              </div>
                             ))}
                           </div>
                         </div>
@@ -154,11 +207,25 @@ export default function CalendarPage() {
                           <div key={e.id} className="flex items-center justify-between text-sm p-2 bg-muted rounded-md group">
                             <div className="flex items-center gap-2">
                               <CheckSquare className="h-4 w-4 text-primary" />
-                              <span>{e.title}</span>
+                              <div>
+                                <span>{e.title}</span>
+                                {e.time && <span className="block text-xs text-muted-foreground">{e.time}</span>}
+                              </div>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleDeleteEvent(e.id)}>
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                title="Agregar a Google Calendar"
+                                onClick={() => window.open(buildGoogleCalendarUrl(e), '_blank')}
+                              >
+                                <CalendarPlus className="h-3 w-3 text-blue-500" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleDeleteEvent(e.id)}>
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
                           </div>
                         ))
                       )}
@@ -166,6 +233,8 @@ export default function CalendarPage() {
                     <form onSubmit={handleAddEvent} className="space-y-3 pt-4 border-t">
                       <Label htmlFor="event-title">Nuevo Evento</Label>
                       <Input id="event-title" placeholder="Ej: Audiencia Caso #505" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} />
+                      <Label htmlFor="event-time">Hora: (darle click en el reloj para agregar hora)</Label>
+                      <Input id="event-time" type="time" value={newEventTime} onChange={(e) => setNewEventTime(e.target.value)} />
                       <Button type="submit" className="w-full" size="sm"><Plus className="h-4 w-4 mr-2" /> Agendar</Button>
                     </form>
                   </div>

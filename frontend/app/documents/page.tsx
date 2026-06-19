@@ -8,9 +8,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Spinner } from '@/components/ui/spinner';
-import { Upload, Trash2, File, ChevronDown, ChevronRight } from 'lucide-react';
+import { Upload, Trash2, File, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getCasos, getDocumentos, crearDocumento, eliminarDocumento } from '@/lib/db';
+import { getCasos, getDocumentos, crearDocumento, eliminarDocumento, subirArchivoDocumento, getUrlDocumento } from '@/lib/db';
 
 interface Documento {
   id: string;
@@ -20,6 +20,7 @@ interface Documento {
   size: number;
   uploadedBy: string;
   uploadedAt: string;
+  storagePath?: string | null;
 }
 
 interface Caso {
@@ -70,6 +71,15 @@ export default function DocumentsPage() {
     try {
       setUploadingCasoId(casoId);
       const file = files[0];
+
+      // Subir archivo real a Supabase Storage
+      let storagePath: string | undefined;
+      try {
+        storagePath = await subirArchivoDocumento(casoId, file);
+      } catch (storageError) {
+        console.warn('Storage no disponible, guardando solo metadata:', storageError);
+      }
+
       const newDoc = await crearDocumento({
         name: file.name,
         type: file.type || 'application/octet-stream',
@@ -77,6 +87,7 @@ export default function DocumentsPage() {
         uploadedBy: 'Usuario',
         uploadedAt: new Date().toISOString().split('T')[0],
         casoId,
+        storagePath,
       });
       setDocumentos(prev => [newDoc, ...prev]);
       toast({ title: 'Documento subido', description: file.name });
@@ -144,7 +155,7 @@ export default function DocumentsPage() {
             type="file"
             onChange={handleUpload}
             className="hidden"
-            accept=".pdf,.xlsx,.xls,.doc,.docx,.png,.jpg,.jpeg"
+            accept="*/*"
           />
 
           {filteredCasos.length === 0 ? (
@@ -220,6 +231,16 @@ export default function DocumentsPage() {
                                 <TableCell>{formatSize(doc.size)}</TableCell>
                                 <TableCell>{new Date(doc.uploadedAt).toLocaleDateString('es-ES')}</TableCell>
                                 <TableCell className="text-right">
+                                  {doc.storagePath && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Abrir archivo"
+                                      onClick={() => window.open(getUrlDocumento(doc.storagePath!), '_blank')}
+                                    >
+                                      <ExternalLink className="h-4 w-4 text-primary" />
+                                    </Button>
+                                  )}
                                   <Button variant="ghost" size="icon" onClick={() => handleDelete(doc.id)}>
                                     <Trash2 className="h-4 w-4 text-destructive" />
                                   </Button>

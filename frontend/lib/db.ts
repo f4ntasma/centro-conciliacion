@@ -56,7 +56,7 @@ export async function getEventos() {
   return data ?? [];
 }
 
-export async function crearEvento(payload: { title: string; date: string; type: string }) {
+export async function crearEvento(payload: { title: string; date: string; type: string; time?: string }) {
   const { data, error } = await supabase
     .from('eventos')
     .insert(payload)
@@ -88,12 +88,14 @@ export async function getDocumentos(casoId?: number) {
     size: d.size,
     uploadedBy: d.uploaded_by,
     uploadedAt: d.uploaded_at,
+    storagePath: d.storage_path ?? null,
   }));
 }
 
 export async function crearDocumento(payload: {
   name: string; type: string; size: number;
   uploadedBy: string; uploadedAt: string; casoId: number;
+  storagePath?: string;
 }) {
   const { data, error } = await supabase
     .from('documentos')
@@ -104,11 +106,25 @@ export async function crearDocumento(payload: {
       uploaded_by: payload.uploadedBy,
       uploaded_at: payload.uploadedAt,
       caso_id: payload.casoId,
+      storage_path: payload.storagePath ?? null,
     })
     .select()
     .single();
   if (error) throw error;
-  return { ...data, uploadedBy: data.uploaded_by, uploadedAt: data.uploaded_at, casoId: data.caso_id };
+  return { ...data, uploadedBy: data.uploaded_by, uploadedAt: data.uploaded_at, casoId: data.caso_id, storagePath: data.storage_path };
+}
+
+export async function subirArchivoDocumento(casoId: number, file: File): Promise<string> {
+  const ext = file.name.split('.').pop();
+  const path = `casos/${casoId}/${Date.now()}-${file.name}`;
+  const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export function getUrlDocumento(storagePath: string): string {
+  const { data } = supabase.storage.from('documentos').getPublicUrl(storagePath);
+  return data.publicUrl;
 }
 
 export async function eliminarDocumento(id: string) {
