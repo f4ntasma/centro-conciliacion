@@ -127,6 +127,12 @@ export function getUrlDocumento(storagePath: string): string {
   return data.publicUrl;
 }
 
+export async function getSignedUrlDocumento(storagePath: string, expiresIn = 3600): Promise<string> {
+  const { data, error } = await supabase.storage.from('documentos').createSignedUrl(storagePath, expiresIn);
+  if (error) throw error;
+  return data.signedUrl;
+}
+
 export async function eliminarDocumento(id: string) {
   const { error } = await supabase.from('documentos').delete().eq('id', id);
   if (error) throw error;
