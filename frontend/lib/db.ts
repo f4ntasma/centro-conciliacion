@@ -115,8 +115,12 @@ export async function crearDocumento(payload: {
 }
 
 export async function subirArchivoDocumento(casoId: number, file: File): Promise<string> {
-  const ext = file.name.split('.').pop();
-  const path = `casos/${casoId}/${Date.now()}-${file.name}`;
+  // Sanitizar nombre: quitar tildes, caracteres especiales y espacios
+  const safeName = file.name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')  // quitar tildes
+    .replace(/[^a-zA-Z0-9._-]/g, '_'); // reemplazar especiales con _
+  const path = `casos/${casoId}/${Date.now()}-${safeName}`;
   const { error } = await supabase.storage.from('documentos').upload(path, file, { upsert: false });
   if (error) throw error;
   return path;

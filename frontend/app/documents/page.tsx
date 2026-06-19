@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { ProtectedRoute } from '@/components/protected-route';
 import { AppLayout } from '@/components/layout/app-layout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,8 @@ import { Spinner } from '@/components/ui/spinner';
 import { Upload, Trash2, File, ChevronDown, ChevronRight, Eye, Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getCasos, getDocumentos, crearDocumento, eliminarDocumento, subirArchivoDocumento, getSignedUrlDocumento } from '@/lib/db';
+
+const DocViewer = dynamic(() => import('@cyntler/react-doc-viewer'), { ssr: false });
 
 interface Documento {
   id: string;
@@ -31,43 +34,18 @@ interface Caso {
   estado: string;
 }
 
-function getViewerUrl(url: string, type: string, name: string): string {
-  const isImage = type.startsWith('image/');
-  const isPdf = type === 'application/pdf' || name.toLowerCase().endsWith('.pdf');
-  const isOffice = [
-    'application/vnd.openxmlformats-officedocument',
-    'application/vnd.ms-',
-    'application/msword',
-  ].some(t => type.startsWith(t)) || /\.(docx?|xlsx?|pptx?)$/i.test(name);
-
-  if (isImage || isPdf) return url;
-  if (isOffice) return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`;
-  return url;
-}
-
 function DocPreview({ url, type, name }: { url: string; type: string; name: string }) {
-  const isImage = type.startsWith('image/');
-  const isPdf = type === 'application/pdf' || name.toLowerCase().endsWith('.pdf');
-  const viewerUrl = getViewerUrl(url, type, name);
-
-  if (isImage) {
-    return <img src={url} alt={name} className="max-w-full max-h-[70vh] mx-auto rounded" />;
-  }
-
-  if (isPdf || !isImage) {
-    return (
-      <iframe
-        src={viewerUrl}
-        className="w-full h-[70vh] rounded border"
-        title={name}
-        sandbox="allow-scripts allow-same-origin allow-popups"
-      />
-    );
-  }
-
+  const docs = [{ uri: url, fileType: type, fileName: name }];
   return (
-    <div className="text-center py-12 text-muted-foreground">
-      No se puede previsualizar este tipo de archivo.
+    <div className="w-full h-[70vh] rounded border overflow-hidden">
+      <DocViewer
+        documents={docs}
+        style={{ width: '100%', height: '100%' }}
+        config={{
+          header: { disableHeader: true },
+          pdfVerticalScrollByDefault: true,
+        }}
+      />
     </div>
   );
 }
